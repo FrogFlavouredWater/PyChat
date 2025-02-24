@@ -1,0 +1,15 @@
+{
+  "commands": {
+
+    "/help": {
+      "description": "List all available commands",
+      "usage": "help"
+    },
+
+    "/ping": {
+      "description": "Ping the server",
+      "usage": "ping"
+    }
+
+  }
+}
