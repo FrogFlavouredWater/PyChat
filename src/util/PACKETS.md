@@ -133,7 +133,7 @@ Asks the client if it is still connected
 | Type | Name | Description
 | ---- | ---- | -----
 | lds | Nickname | Nickname of user who left
-| lds | Reason | Reason for disconnect
+| lds | Message | Reason for disconnect
 
 
 ## Two-way [0xxx]
@@ -142,5 +142,5 @@ Asks the client if it is still connected
 Signals whether the request succeeded
 | Type  | Name | Description
 | ----- | ---- | -----
-| uint8 | Response value | 0 if successful, otherwise error code
-| nts | Response content | The text response or error message
+| uint8 | Value | 0 if successful, otherwise error code
+| nts | Content | The text response or error message

@@ -1,4 +1,4 @@
-import unicodedata
+NULL_CHAR = 0x00.to_bytes()
 
 class uint:
     NUM_BYTES = 0
@@ -23,10 +23,10 @@ class uint:
     @classmethod
     def decode(cls, value: bytes):
         """Turn bytes into this class"""
-        if len(value) != cls.NUM_BYTES:
-            raise TypeError("Wrong number of bytes")
+        if len(value) < cls.NUM_BYTES:
+            raise ValueError("Wrong number of bytes")
 
-        return cls(int.from_bytes(value))
+        return cls(int.from_bytes(value[:cls.NUM_BYTES]))
 
 class uint8(uint):
     NUM_BYTES = 1
@@ -55,8 +55,8 @@ class lds:
 
     def encode(self):
         """Turn stored value into bytes"""
-        enc = bytearray(len(self.value))
-        enc.append(self.value.encode('unicode_escape'))
+        enc = bytearray(len(self.value).to_bytes())
+        enc.extend(self.value.encode('unicode_escape'))
 
         return bytes(enc)
 
@@ -65,7 +65,32 @@ class lds:
         """Turn bytes into this class"""
         length = int.from_bytes(value[0])
 
-        if len(value)-1 != length:
-            raise TypeError("Wrong number of bytes")
+        if len(value)-1 < length:
+            raise ValueError("Wrong number of bytes")
 
-        return cls(int.from_bytes(value))
+        return cls(value[1:length+1].decode("unicode_escape"))
+
+class nts:
+    def __init__(self, value: str=""):
+        self.value = value
+
+    def __int__(self):
+        return int(self.value)
+
+    def __str__(self):
+        return self.value
+
+    def encode(self):
+        """Turn stored value into bytes"""
+        enc = bytearray(len(self.value).to_bytes())
+        enc.extend(self.value.encode('unicode_escape'))
+
+        return bytes(enc)
+
+    @classmethod
+    def decode(cls, value: bytes):
+        """Turn bytes into this class"""
+        if not NULL_CHAR in value:
+            raise ValueError("No termination in NTS")
+
+        return cls(value.split(NULL_CHAR, 1)[0])
