@@ -26,7 +26,7 @@ class uint:
         if len(value) < cls.NUM_BYTES:
             raise ValueError("Wrong number of bytes")
 
-        return cls(int.from_bytes(value[:cls.NUM_BYTES]))
+        return (cls(int.from_bytes(value[:cls.NUM_BYTES])), cls.NUM_BYTES)
 
 class uint8(uint):
     NUM_BYTES = 1
@@ -68,7 +68,7 @@ class lds:
         if len(value)-1 < length:
             raise ValueError("Wrong number of bytes")
 
-        return cls(value[1:length+1].decode("unicode_escape"))
+        return (cls(value[1:length+1].decode("unicode_escape")), length-1)
 
 class nts:
     def __init__(self, value: str=""):
@@ -93,4 +93,4 @@ class nts:
         if not NULL_CHAR in value:
             raise ValueError("No termination in NTS")
 
-        return cls(value.split(NULL_CHAR, 1)[0])
+        return (cls(value.split(NULL_CHAR, 1)[0].decode("unicode_escape")), value.index(NULL_CHAR))

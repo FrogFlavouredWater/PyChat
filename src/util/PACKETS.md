@@ -21,7 +21,7 @@ Note that if the field is an unsigned integer (uint*), a byte count of 1 allows 
 
 | No. of bytes | Name | Type | Description |
 | - | --------------- | ---- | ----------- |
-| 2 | Packet length   | uint | The total length of the packet in bytes |
+| 4 | Packet length   | uint | The total length of the packet in bytes |
 | 2 | Major version   | uint | The major version number. See below for info. |
 | 2 | Minor version   | uint | The minor version number |
 | 2 | Packet type     | uint | The ID of the packet |
