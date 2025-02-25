@@ -31,16 +31,19 @@ id_map = []
 
 for i in pkt_cfg.nodes:
     if i.name == "version":
-        VERSION_MAJOR = i.args[0]
-        VERSION_MINOR = i.args[1]
+        VERSION_MAJOR = int(i.args[0])
+        VERSION_MINOR = int(i.args[1])
         continue
 
     for n in i.nodes:
         # Create a dictionary of attributes for our new class
-        attr_dict = {"id": n.args[0], "flags":list(n.args[1]), "fields": n.props}
+        attr_dict = {"id": int(n.args[0]), "fields": n.props}
+
+        if len(n.args) > 1: # has 'flags' argument
+            attr_dict["flags"] = list(n.args[1])
 
         # Create a new class for the configured packet
-        new_packet = type(n.name, (Packet, ), )
+        new_packet = type(n.name, (Packet, ), attr_dict)
 
         # new_packet is now a class with the name of what was given in packets.kdl and contains:
         # id: the ID as an int
@@ -75,17 +78,17 @@ def decode(packet: bytes):
     if mv != VERSION_MAJOR:
         raise PacketReadError(f"Mismatched packet major version (we're on v{VERSION_MAJOR}.{VERSION_MINOR}, packet's on v{mv})")
 
-    packet_id = int.from_bytes(packet[6:8])
+    packet_id = int.from_bytes(packet[8:10])
 
     packet_cls = id_dict[packet_id] # Create a new Packet class instance
 
-    i = 8
+    i = 10
     if 'i' in packet_cls.flags:
-        packet_cls.idempotency = packet_cls[8:12]
+        packet_cls.idempotency = packet_cls[10:14]
         i += 4
 
     # Populate the packet class
-    for fname, ftype in packet_cls.fields.enumerate(): # fname = name of the packet field, ftype = data type of the field as defined in data_types.py
+    for fname, ftype in packet_cls.fields.items(): # fname = name of the packet field, ftype = data type of the field as defined in data_types.py
         fcls, inc = getattr(dt, ftype).decode(packet[i:]) # returns a tuple (data type class, number of bytes read from input)
         setattr(packet_cls, fname, fcls)
 
@@ -117,4 +120,15 @@ def encode(packet: Packet):
     return size + encoded_pkt
 
 if __name__ == "__main__":
-    pass
+    # Example packet
+    my_packet = clientbound.recieve_message()
+    my_packet.nickname = dt.lds("Lascode")
+    my_packet.content = dt.nts("I am a very cute kitty")
+
+    my_encoded_packet = encode(my_packet)
+
+    print(my_encoded_packet) # send out to client
+
+    my_decoded_packet = decode(my_encoded_packet)
+
+    print(f"{my_decoded_packet.nickname}: {my_decoded_packet.content}") # my_decoded_packet is a recieve_message packet

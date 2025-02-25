@@ -5,7 +5,7 @@ class uint:
     def __init__(self, value: int=0):
         self.MAX_VALUE = 2**(self.NUM_BYTES * 8)
 
-        if value > self.MAX_VALUE: raise OverflowError(f"Value {value} too large for 8-bit uint")
+        if value > self.MAX_VALUE: raise OverflowError(f"Value {value} too large for {self.NUM_BYTES*8}-bit uint")
         if value < 0: raise TypeError(f"{value} is not an unsigned integer")
 
         self.value = value
@@ -32,13 +32,13 @@ class uint8(uint):
     NUM_BYTES = 1
 
 class uint16(uint):
-    NUM_BYTES = 1
+    NUM_BYTES = 2
 
 class uint24(uint):
-    NUM_BYTES = 1
+    NUM_BYTES = 3
 
 class uint32(uint):
-    NUM_BYTES = 1
+    NUM_BYTES = 4
 
 class lds:
     def __init__(self, value: str=""):
@@ -55,20 +55,20 @@ class lds:
 
     def encode(self):
         """Turn stored value into bytes"""
-        enc = bytearray(len(self.value).to_bytes())
-        enc.extend(self.value.encode('unicode_escape'))
+        enc = len(self.value).to_bytes()
+        enc += self.value.encode('unicode_escape')
 
-        return bytes(enc)
+        return enc
 
     @classmethod
     def decode(cls, value: bytes):
         """Turn bytes into this class"""
-        length = int.from_bytes(value[0])
+        length = value[0]
 
         if len(value)-1 < length:
             raise ValueError("Wrong number of bytes")
 
-        return (cls(value[1:length+1].decode("unicode_escape")), length-1)
+        return (cls(value[1:length+1].decode("unicode_escape")), length+1)
 
 class nts:
     def __init__(self, value: str=""):
@@ -82,10 +82,10 @@ class nts:
 
     def encode(self):
         """Turn stored value into bytes"""
-        enc = bytearray(len(self.value).to_bytes())
-        enc.extend(self.value.encode('unicode_escape'))
+        enc = self.value.encode('unicode_escape')
+        enc += NULL_CHAR
 
-        return bytes(enc)
+        return enc
 
     @classmethod
     def decode(cls, value: bytes):
