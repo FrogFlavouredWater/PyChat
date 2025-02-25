@@ -66,27 +66,81 @@ If the value starts with '#', it is a hexadecimal value ('#F2'), otherwise it is
 | uint8 | Unsigned 8-bit integer | [#A7]
 | uint16/24/32 etc | Unsigned integer | [#12] [#3A] [#45] ...
 | sint8/16/24 etc | Signed integer | [#80] [#FF] [#12] ... | First bit determines whether it is negative
-| ldi | Length-determined integer | [#04] [#12] [#3A] [#45] [#6C] | First byte is a 7-bit uint which represents the length in bytes. If length is 0, consider the value to be 0. If first bit of length is 1, treat value as a signed int.
+| ldi | Length-determined integer | [#04] [#12] [#3A] [#45] [#6C] | First byte is a 7-bit uint which represents the length in bytes. If length is 0, consider the value to be 0. If first bit of length is 1, treat value as a negative signed int.
 | nts | Null-terminated string | [H] [E] [L] [L] [O] [NUL] | Arbitary length string ending in 'NUL' (0x00)
 | lds | Length-determined string | [#05] [H] [E] [L] [L] [O] | Maximum length of 255
+
+## Length handling
+On recieving a packet, if there are more fields than expected, ignore them. This is in case additional fields are added in a later update.
+
+If the packet has a different length than given in the 'Packet length' header, drop it.\
+**TODO:** Decide whether an error response should be sent
 
 # Packet identifiers
 Okay, that was a huge amount of what is essentially boiler-plate documentation. For our application, there's no way packets need to be this complex, but it's really fun to learn about.
 
 **Packet flags:**\
-non-idempotent = requires idempotency token\
-authorised = requires authorisation\
+non-**i**dempotent = requires idempotency token (only needed if -r is also set)\
+**a**uthorised = requires authorisation\
+**r**esponse = requres a response [0000]
 
-## Server-bound
+## Server-bound [4xxx]
+
+### [4001] Send message -ri
+| Type | Name | Description
+| ---- | ---- | -----
+| nts | Content | The message content
+
+### [4002] Connect -ri
+| Type | Name | Description
+| ---- | ---- | -----
+| lds | Nickname | nickname of user
+
+### [4003] Change nickname -ri
+| Type | Name | Description
+| ---- | ---- | -----
+| lds | Nickname | new nickname
+
+### [4004] Disconnect
+| Type | Name | Description
+| ---- | ---- | -----
+| lds | Reason | Reason for disconnect
+
+## Client-bound [8xxx]
+
+### [8000] Keep Alive -r
+Asks the client if it is still connected
+
+### [8001] Recieve Message
+| Type | Name | Description
+| ---- | ---- | -----
+| lds | Nickname | nickname of user sending the message
+| nts | Content | Message content
+
+### [8002] Connect
+| Type | Name | Description
+| ---- | ---- | -----
+| lds | Nickname | nickname of user that joined
+| lds | Message | welcome message
+
+### [8003] Change nickname
+| Type | Name | Description
+| ---- | ---- | -----
+| lds | Old nickname | The user who changed their nick
+| lds | Nickname | User's new nickname
+
+### [8004] Disconnect
+| Type | Name | Description
+| ---- | ---- | -----
+| lds | Nickname | Nickname of user who left
+| lds | Reason | Reason for disconnect
+
+
+## Two-way [0xxx]
 
 ### [0000] Response
-Signals whether the server's request succeeded
+Signals whether the request succeeded
 | Type  | Name | Description
 | ----- | ---- | -----
 | uint8 | Response value | 0 if successful, otherwise error code
 | nts | Response content | The text response or error message
-
-### [0001] Connect
-| Type | Name | Description
-| ---- | ---- | -----
-| lds | Username | nickname of user
