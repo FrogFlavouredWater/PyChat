@@ -1,14 +1,16 @@
 import asyncio
 import websockets
 from loguru import logger
+from util import packets
+from util import data_types as dt
 
 # Dictionary mapping each connected websocket to its username.
 clients = {}
 
-async def broadcast(message):
-    logger.info("Broadcasting message: {}", message)
+async def broadcast(packet: packets.Packet):
+    #logger.info("Broadcasting message: {}", message)
     if clients:
-        await asyncio.gather(*[ws.send(message) for ws in clients])
+        await asyncio.gather(*[ws.send(packet) for ws in clients])
 
 async def handle_server_command(websocket, username, message):
     """
@@ -16,6 +18,7 @@ async def handle_server_command(websocket, username, message):
     Currently supports:
       /users list
     """
+    return # TODO
     parts = message.strip().split()
     command = parts[0][1:].lower()  # Remove leading '/'
     if command == "users":
@@ -35,8 +38,12 @@ async def chat_handler(websocket):
         username = await websocket.recv()
         clients[websocket] = username
         logger.info("Client connected: {} ({})", username, client_ip)
-        await broadcast(f"[{username} joined]")
-        
+
+        join_pkt = packets.clientbound.connect()
+        join_pkt.nickname = dt.lds(username)
+        join_pkt.content = dt.nts()
+        await broadcast(join_pkt)
+
         async for message in websocket:
             # If the message is a command event sent by the client (processed locally),
             # log it on the server and do not broadcast it.
@@ -51,13 +58,20 @@ async def chat_handler(websocket):
                     logger.info("Command executed by {}: {}", username, message)
                     continue
             logger.debug("Received message from {}: {}", username, message)
-            await broadcast(f"{username}: {message}")
+            msg_pkt = packets.clientbound.recieve_message()
+            msg_pkt.nickname = dt.lds(username)
+            msg_pkt.content = dt.nts(message.replace(dt.NULL_CHAR, ''))
+            await broadcast(msg_pkt)
     except websockets.exceptions.ConnectionClosed:
         logger.info("Connection closed for client: {}", username)
     finally:
         if websocket in clients:
             username = clients.pop(websocket)
-            await broadcast(f"[{username} left]")
+
+            leave_pkt = packets.clientbound.disconnect()
+            leave_pkt.nickname = dt.lds(username)
+            leave_pkt.message = dt.nts()
+            await broadcast(leave_pkt)
 
 async def main():
     logger.info("Starting server on 0.0.0.0:8080")

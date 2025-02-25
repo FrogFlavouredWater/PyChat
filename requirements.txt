@@ -1,0 +1,3 @@
+kdl-py==1.2.0
+loguru==0.7.3
+websockets==15.0

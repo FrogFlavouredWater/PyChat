@@ -3,9 +3,16 @@ import websockets
 from loguru import logger
 import sys
 import argparse
+from util import packets
+from util import datatypes as dt
+import kdl
 
-IP_ADDR = "147.147.210.47"
-PORT = "8080"
+# Load config file
+with open("res/cfg/config.kdl", 'r') as _infile:
+    client_cfg = kdl.parse(_infile.read())
+
+IP_ADDR = client_cfg.client.server.ip
+PORT = client_cfg.client.server.port
 
 DEBUG_ENABLED = False
 
@@ -49,7 +56,7 @@ async def handle_client_command(websocket, message):
             logger.add(sys.stdout, level=new_level, colorize=True)
             print(f"Debug mode set to {DEBUG_ENABLED}")
             # Send a special command event to the server for logging.
-            await websocket.send(f"__CMD__ {new_command}")
+            #await websocket.send(f"__CMD__ {new_command}")
             return True
         else:
             print("Usage: /set debugmode [on|off|toggle]")
@@ -69,7 +76,10 @@ async def send_messages(websocket):
             handled = await handle_client_command(websocket, msg)
             if handled:
                 continue  # Skip sending the command if it was handled locally.
-        await websocket.send(msg)
+
+        msg_pkt = packets.serverbound.send_message()
+        msg_pkt.content = dt.nts(msg)
+        await websocket.send(msg_pkt)
         logger.debug("Sent message: {}", msg)
 
 async def receive_messages(websocket):
@@ -91,6 +101,7 @@ async def receive_messages(websocket):
     except websockets.exceptions.ConnectionClosed:
         logger.info("Connection closed by server.")
 
+
 async def main(debug):
     # Configure loguru logging.
     logger.remove()
@@ -101,12 +112,14 @@ async def main(debug):
         logger.debug("Debug mode enabled.")
     else:
         logger.add(sys.stdout, level="INFO", colorize=True)
-    
+
     username = await asyncio.to_thread(input, "Enter your username: ")
     url = f"ws://{IP_ADDR}:{PORT}"
     async with websockets.connect(url) as websocket:
         # Send the username as the first message.
-        await websocket.send(username)
+        connect_pkt = packets.serverbound.connect()
+        connect_pkt.username = dt.lds(username)
+        await websocket.send(connect_pkt)
         logger.info("Connected to server as {}", username)
         # Run both send and receive loops concurrently.
         await asyncio.gather(send_messages(websocket), receive_messages(websocket))
