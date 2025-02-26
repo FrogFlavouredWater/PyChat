@@ -10,7 +10,7 @@ serverbound {
     send_message 0x4000 "ri" content="nts"
     connect 0x4002 "ri" nickname="lds"
     change_nickname 0x4003 "ri" nickname="lds"
-    disconnect 0x4004 reason="lds"
+    disconnect 0x4004 message="lds"
     direct_message 0x4005 "ri" target="lds" content="nts"
     command 0x4006 "ri" keyword="lds"
 }

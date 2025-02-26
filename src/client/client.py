@@ -83,7 +83,7 @@ async def send_messages(websocket):
         # Green prompt for user input.
         msg = await asyncio.to_thread(input, "\033[32m>> \033[0m")
         if msg.lower() == "exit":
-            await websocket.close()
+            await websocket.send(packets.serverbound.disconnect(message="Goodbye!").encode())
             break
         # Process local commands (e.g. /set debugmode or /dm).
         if msg.startswith("/"):
@@ -99,20 +99,29 @@ async def receive_messages(websocket):
     try:
         async for message_packet in websocket:
             message = packets.decode(message_packet)
+            formatted_message = ""
             # Format incoming messages:
             # System messages (in brackets) appear in magenta,
             # user list messages in yellow, and chat messages in cyan. :3
             if message.type_name == "recieve_message":
                 formatted_message = f"{Fore.CYAN}{message.nickname}: {Style.RESET_ALL}{message.content}"
-            elif message.type_name == "connect" or message.type_name == "disconnect":
+            elif message.type_name == "connect":
                 formatted_message = f"{Fore.MAGENTA}{message.nickname} joined the server{(': ' + message.message) if message.message else ''}" # message is an optional field containing a join/leave reason
+            elif message.type_name == "disconnect":
+                formatted_message = f"{Fore.MAGENTA}{message.nickname} left the server{(': ' + message.message) if message.message else ''}"
             elif message.type_name == "direct_message":
                 formatted_message = f"{Back.LIGHTBLUE_EX}{Fore.BLACK}DM{Style.RESET_ALL} {Style.BRIGHT}{Fore.YELLOW}{message.source}{Style.RESET_ALL}{Style.DIM} --> You: {Style.RESET_ALL}{message.content}"
+            elif message.type_name == "response":
+                if message.value > 0:
+                    logger.error(f"Server returned faliure {message.value}: {message.content}")
+                else:
+                    logger.debug(f"Server returned a success: {message.content}")
             else:
                 formatted_message = f"{Fore.YELLOW}{message.content}"
             # Prepend a newline so it doesn't interfere with the prompt.
-            print(formatted_message + Style.RESET_ALL)
-            logger.debug("Received message: {}", message)
+            if formatted_message:
+                print(formatted_message + Style.RESET_ALL)
+                logger.debug("Received message: {}", message)
     except websockets.exceptions.ConnectionClosed:
         logger.info("Connection closed by server.")
 
