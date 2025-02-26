@@ -72,7 +72,7 @@ class Client:
     async def p_disconnect(self, packet: packets.Packet):
         dc_pkt = packets.clientbound.disconnect(nickname=self.nick, message=packet.message)
         await broadcast(dc_pkt)
-        await packet.close()
+        await self.conn.close()
         return (0, "")
 
 async def chat_handler(websocket: websockets.ClientConnection):
