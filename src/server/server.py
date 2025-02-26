@@ -26,7 +26,7 @@ class Client:
             if not self.fully_connected:
                 error_packet = packets.twoway.response(value=127, content="Client connection not complete")
                 await self.send(error_packet)
-                return (127, )
+                return
             return await func(self, *args, **kwargs)
         return wrapper
 
@@ -73,7 +73,7 @@ class Client:
         dc_pkt = packets.clientbound.disconnect(nickname=self.nick, message=packet.message)
         await broadcast(dc_pkt)
         await packet.close()
-        return (0, )
+        return (0, "")
 
 async def chat_handler(websocket: websockets.ClientConnection):
     client = Client(websocket)
@@ -88,7 +88,7 @@ async def chat_handler(websocket: websockets.ClientConnection):
         await broadcast(leave_pkt)
     finally:
         if client in clients:
-            clients.pop(client)
+            clients.remove(client)
 
 async def main():
     logger.info("Starting server on 0.0.0.0:8080")
