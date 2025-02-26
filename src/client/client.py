@@ -5,6 +5,7 @@ import sys
 import argparse
 from SCPC.util import packets
 import kdl
+from colorama import Style, Fore, Back
 
 packets.init("etc/cfg/packets.kdl")
 
@@ -57,11 +58,23 @@ async def handle_client_command(websocket, message):
             logger.add(sys.stdout, level=new_level, colorize=True)
             print(f"Debug mode set to {DEBUG_ENABLED}")
             # Send a special command event to the server for logging.
-            #await websocket.send(f"__CMD__ {new_command}")
+            pkt = packets.serverbound.command(keyword=parts[0])
+            await websocket.send(pkt.encode())
             return True
         else:
             print("Usage: /set debugmode [on|off|toggle]")
             return True
+    elif parts[0].lower() == "/pm":
+        if len(parts) < 3:
+            print("Usage: /pm <user> <message>")
+            return True
+        pm_packet = packets.serverbound.direct_message(target=parts[1], content=parts[2])
+        await websocket.send(pm_packet.encode())
+
+        formatted_message = f"{Back.LIGHTBLUE_EX}{Fore.BLACK}DM{Style.RESET_ALL}{Style.DIM} You --> {Style.RESET_ALL}{Style.BRIGHT}{Fore.YELLOW}{parts[1]}: {Style.RESET_ALL}{parts[2]}"
+        print(formatted_message + Style.RESET_ALL)
+        return True
+
     return False
 
 async def send_messages(websocket):
@@ -90,13 +103,15 @@ async def receive_messages(websocket):
             # System messages (in brackets) appear in magenta,
             # user list messages in yellow, and chat messages in cyan. :3
             if message.type_name == "recieve_message":
-                formatted_message = f"\033[35m{message.nickname}: {message.content}\033[0m"
+                formatted_message = f"{Fore.CYAN}{message.nickname}: {Style.RESET_ALL}{message.content}"
             elif message.type_name == "connect" or message.type_name == "disconnect":
-                formatted_message = f"\033[33m{message.nickname} joined the server: {message.message}\033[0m" # message is an optional field containing a join/leave reason
+                formatted_message = f"{Fore.MAGENTA}{message.nickname} joined the server{(': ' + message.message) if message.message else ''}" # message is an optional field containing a join/leave reason
+            elif message.type_name == "direct_message":
+                formatted_message = f"{Back.LIGHTBLUE_EX}{Fore.BLACK}DM{Style.RESET_ALL} {Style.BRIGHT}{Fore.YELLOW}{message.source}{Style.RESET_ALL}{Style.DIM} --> You: {Style.RESET_ALL}{message.content}"
             else:
-                formatted_message = f"\033[36m{message.content}\033[0m"
+                formatted_message = f"{Fore.YELLOW}{message.content}"
             # Prepend a newline so it doesn't interfere with the prompt.
-            print("\n" + formatted_message)
+            print(formatted_message + Style.RESET_ALL)
             logger.debug("Received message: {}", message)
     except websockets.exceptions.ConnectionClosed:
         logger.info("Connection closed by server.")

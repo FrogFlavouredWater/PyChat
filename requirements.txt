@@ -1,4 +1,5 @@
 kdl-py==1.2.0
 loguru==0.7.3
 websockets==15.0
+colorama==0.4.6
 SCPC @ https://github.com/Electro3020/SCPC/archive/refs/heads/main.zip

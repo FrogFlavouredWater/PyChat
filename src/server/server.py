@@ -47,10 +47,10 @@ async def chat_handler(websocket):
             # If the message is a command event sent by the client (processed locally),
             # log it on the server and do not broadcast it.
             message = packets.decode(message_packet)
-            # if message.type_name == "command":
-            #     command_text = message.keyword
-            #     logger.info("Command executed by {}: {}", username, command_text)
-            #     continue
+            if message.type_name == "command":
+                command_text = message.keyword
+                logger.info("Command executed by {}: {}", username, command_text)
+                continue
             # # If the message is a server-handled command, process it.
             # if message.startswith("/"):
             #     handled = await handle_server_command(websocket, username, message)
@@ -58,9 +58,15 @@ async def chat_handler(websocket):
             #         logger.info("Command executed by {}: {}", username, message)
             #         continue uwu
             if message.type_name == "direct_message":
-                pass # TODO
+                for key, value in clients.items():
+                    if value.lower() == message.target.lower():
+                        dm_packet = packets.clientbound.direct_message(source=username, content=message.content)
 
-            elif message.type_name == "message":
+                        await key.send(dm_packet.encode())
+
+                        break
+
+            elif message.type_name == "send_message":
                 logger.debug("Received message from {}: {}", username, message.content)
                 msg_pkt = packets.clientbound.recieve_message(nickname=username, content=message.content)
                 await broadcast(msg_pkt)
