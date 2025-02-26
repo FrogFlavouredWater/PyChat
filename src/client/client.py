@@ -6,8 +6,10 @@ import argparse
 from SCPC.util import packets
 import kdl
 
+packets.init("etc/cfg/packets.kdl")
+
 # Load config file
-with open("res/cfg/config.kdl", 'r') as _infile:
+with open("etc/cfg/config.kdl", 'r') as _infile:
     client_cfg = kdl.parse(_infile.read())
 
 IP_ADDR = client_cfg.get("client").get("server").props["ip"]

@@ -5,6 +5,8 @@ from SCPC.util import packets
 # Dictionary mapping each connected websocket to its username.
 clients = {}
 
+packets.init("etc/cfg/packets.kdl")
+
 async def broadcast(packet: packets.Packet):
     #logger.info("Broadcasting message: {}", message)
     if clients:
