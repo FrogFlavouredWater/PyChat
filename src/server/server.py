@@ -2,14 +2,13 @@ import asyncio
 import websockets
 from loguru import logger
 from SCPC.util import packets
-from SCPC.util import data_types as dt
 # Dictionary mapping each connected websocket to its username.
 clients = {}
 
 async def broadcast(packet: packets.Packet):
     #logger.info("Broadcasting message: {}", message)
     if clients:
-        await asyncio.gather(*[ws.send(packet) for ws in clients])
+        await asyncio.gather(*[ws.send(packet.encode()) for ws in clients])
 
 async def handle_server_command(websocket, username, message):
     """
@@ -34,32 +33,30 @@ async def chat_handler(websocket):
     client_ip = websocket.remote_address[0] if websocket.remote_address else "unknown"
     try:
         # The very first message from the client is taken as the username.
-        username = await websocket.recv()
+        join_pkt = await websocket.recv()
+        username = packets.decode(join_pkt).nickname
         clients[websocket] = username
         logger.info("Client connected: {} ({})", username, client_ip)
 
-        join_pkt = packets.clientbound.connect()
-        join_pkt.nickname = dt.lds(username)
-        join_pkt.content = dt.nts()
+        join_pkt = packets.clientbound.connect(nickname=username)
         await broadcast(join_pkt)
 
-        async for message in websocket:
+        async for message_packet in websocket:
             # If the message is a command event sent by the client (processed locally),
             # log it on the server and do not broadcast it.
-            if message.startswith("__CMD__"):
-                command_text = message[len("__CMD__"):].strip()
-                logger.info("Command executed by {}: {}", username, command_text)
-                continue
-            # If the message is a server-handled command, process it.
-            if message.startswith("/"):
-                handled = await handle_server_command(websocket, username, message)
-                if handled:
-                    logger.info("Command executed by {}: {}", username, message)
-                    continue
-            logger.debug("Received message from {}: {}", username, message)
-            msg_pkt = packets.clientbound.recieve_message()
-            msg_pkt.nickname = dt.lds(username)
-            msg_pkt.content = dt.nts(message.replace(dt.NULL_CHAR, ''))
+            message = packets.decode(message_packet)
+            # if message.type_name == "command":
+            #     command_text = message.keyword
+            #     logger.info("Command executed by {}: {}", username, command_text)
+            #     continue
+            # # If the message is a server-handled command, process it.
+            # if message.startswith("/"):
+            #     handled = await handle_server_command(websocket, username, message)
+            #     if handled:
+            #         logger.info("Command executed by {}: {}", username, message)
+            #         continue uwu
+            logger.debug("Received message from {}: {}", username, message.content)
+            msg_pkt = packets.clientbound.recieve_message(nickname=username, content=message.content)
             await broadcast(msg_pkt)
     except websockets.exceptions.ConnectionClosed:
         logger.info("Connection closed for client: {}", username)
@@ -67,9 +64,7 @@ async def chat_handler(websocket):
         if websocket in clients:
             username = clients.pop(websocket)
 
-            leave_pkt = packets.clientbound.disconnect()
-            leave_pkt.nickname = dt.lds(username)
-            leave_pkt.message = dt.nts()
+            leave_pkt = packets.clientbound.disconnect(nickname=username)
             await broadcast(leave_pkt)
 
 async def main():
