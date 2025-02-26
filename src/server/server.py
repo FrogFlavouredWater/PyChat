@@ -57,9 +57,13 @@ async def chat_handler(websocket):
             #     if handled:
             #         logger.info("Command executed by {}: {}", username, message)
             #         continue uwu
-            logger.debug("Received message from {}: {}", username, message.content)
-            msg_pkt = packets.clientbound.recieve_message(nickname=username, content=message.content)
-            await broadcast(msg_pkt)
+            if message.type_name == "direct_message":
+                pass # TODO
+
+            elif message.type_name == "message":
+                logger.debug("Received message from {}: {}", username, message.content)
+                msg_pkt = packets.clientbound.recieve_message(nickname=username, content=message.content)
+                await broadcast(msg_pkt)
     except websockets.exceptions.ConnectionClosed:
         logger.info("Connection closed for client: {}", username)
     finally:

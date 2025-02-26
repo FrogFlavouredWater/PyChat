@@ -11,6 +11,7 @@ serverbound {
     connect 0x4002 "ri" nickname="lds"
     change_nickname 0x4003 "ri" nickname="lds"
     disconnect 0x4004 reason="lds"
+    direct_message 0x4005 "ri" target="lds" content="nts"
 }
 
 clientbound {
@@ -18,6 +19,7 @@ clientbound {
     recieve_message 0x8001 nickname="lds" content="nts"
     connect 0x8002 nickname="lds" message="lds"
     disconnect 0x8004 nickname="lds" message="lds"
+    direct_message 0x8005 source="lds" content="nts"
 }
 
 twoway {
