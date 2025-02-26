@@ -3,8 +3,8 @@ import websockets
 from loguru import logger
 import sys
 import argparse
-from util import packets
-from util import datatypes as dt
+from SCPC.util import packets
+from SCPC.util import datatypes as dt
 import kdl
 
 # Load config file

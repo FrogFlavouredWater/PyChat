@@ -1,9 +1,8 @@
 import asyncio
 import websockets
 from loguru import logger
-from util import packets
-from util import data_types as dt
-
+from SCPC.util import packets
+from SCPC.util import data_types as dt
 # Dictionary mapping each connected websocket to its username.
 clients = {}
 
