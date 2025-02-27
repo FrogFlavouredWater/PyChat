@@ -1,4 +1,8 @@
 client {
     debug false enable_commands=true
-    server ip="127.0.0.1" port="8080"
+
+    server {
+        ip "127.0.0.1" 
+        port "8080"
+    }
 }

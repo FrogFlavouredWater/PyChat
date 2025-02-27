@@ -8,9 +8,8 @@ MAX_MESSAGE_SIZE=100
 SERVER_ADDRESS="0.0.0.0"
 SERVER_PORT="8080"
 
-command_aliases = {}
+command_aliases = {"msg" : "message"} 
 
-# Dictionary mapping each connected websocket to its username.
 clients = []
 
 packets.init("etc/cfg/packets.kdl")
@@ -19,6 +18,7 @@ async def broadcast(packet: packets.Packet):
     #logger.info("Broadcasting message: {}", message)
     if clients:
         await asyncio.gather(*[client.send(packet) for client in clients])
+
 
 class Client(ConnectionHandler):
     """Class to store Client attributes and methods"""
@@ -74,7 +74,7 @@ class Client(ConnectionHandler):
     @if_fully_connected
     async def p_command(self, packet: packets.Packet):
         command_text = packet.keyword
-        logger.info("Command executed by {}: {}", self.nick, command_text)
+        logger.info(f"Command executed by {self.nick}: {command_text}")
         return await self.handle_command(packet.keyword, packet.args)
 
     @if_fully_connected
@@ -96,8 +96,8 @@ class Client(ConnectionHandler):
     async def handle_command(self, keyword: str, args: str) -> bool:
         cmd = args.split(' ')
 
-        if command_aliases.get(keyword):
-            keyword = command_aliases[keyword]
+        if keyword in command_aliases.keys():
+            keyword = command_aliases[keyword] # set to value section of alias
 
         try:
             cmd_func = getattr(self, "c_" + keyword) # Find the function in self that's named 'c_commandname'
@@ -109,7 +109,7 @@ class Client(ConnectionHandler):
 
 async def chat_handler(websocket: websockets.ClientConnection):
     client = Client(websocket)
-    async for message_packet in websocket:
+    async for message_packet in websocket: # wait for packets and decode raw bytes back to text
         try:
             message = packets.decode(message_packet)
         except packets.PacketReadError as e:
@@ -117,6 +117,7 @@ async def chat_handler(websocket: websockets.ClientConnection):
         else:
             await client.handle_packet(message)
 
+    # once client disconnected
     if client in clients:
         clients.remove(client)
 
@@ -130,4 +131,14 @@ async def main():
         await asyncio.Future()  # Run forever
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logger.info("Server stopped by user")
+    except OSError as e:
+        logger.error(f"Service already running on that address: \nOnly one use of each socket address is normally permitted.\n(Address: {SERVER_ADDRESS}:{SERVER_PORT} is already in use)\nIs the server already running?\n")
+    except Exception as e:
+        logger.error(f"Server stopped due to error: {e}")
+    
+    
+

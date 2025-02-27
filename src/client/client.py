@@ -16,11 +16,10 @@ packets.init("etc/cfg/packets.kdl")
 with open("etc/cfg/config.kdl", 'r') as _infile:
     client_cfg = kdl.parse(_infile.read())
 
-IP_ADDR = client_cfg["client"]["server"].props["ip"]
-IP_PORT = client_cfg["client"]["server"].props["port"]
+IP_ADDR = client_cfg["client"]["server"]["ip"].args[0]
+IP_PORT = client_cfg["client"]["server"]["port"].args[0]
 
 DEBUG_ENABLED = False
-
 # TODO: add to config file
 command_aliases = {"dm": "msg", "pm": "msg", "w": "msg", "debug": "debugmode", "l": "exit"}
 
@@ -182,3 +181,7 @@ if __name__ == "__main__":
         logger.info("Connection closed by server.")
     except KeyboardInterrupt:
         pass
+    except ConnectionRefusedError:
+        logger.critical("Connection refused by server.\nIs the server running?\nIs the IP address correct?\nIs the port correct?\nAre you connected to the internet?\nAre you really connected to the internet?\nAre you sure?\nAre you really sure?\nAre you really really sure?\nAre you really really really sure?")    
+    except Exception as e: # IMPORTANT: HENRY DONT YOU FUCKING DARE REMOVE THIS
+        logger.critical(f"Something went wrong and I have no fucking clue what it was. Good luck debugging this one:\n Maybe it was: {e}")
