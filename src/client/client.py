@@ -100,7 +100,7 @@ class Client(ConnectionHandler):
         pm_packet = packets.serverbound.direct_message(target=args[0], content=args[1])
         await self.send(pm_packet)
 
-        formatted_message = f"{Back.LIGHTBLUE_EX}{Fore.BLACK}DM{Style.RESET_ALL}{Style.DIM} You --> {Style.RESET_ALL}{Style.BRIGHT}{Fore.YELLOW}{args[0]}: {Style.RESET_ALL}{args[1]}"
+        formatted_message = f"{Back.LIGHTBLUE_EX}{Fore.BLACK} DM {Style.RESET_ALL}{Style.DIM} You --> {Style.RESET_ALL}{Style.BRIGHT}{Fore.YELLOW}{args[0]}: {Style.RESET_ALL}{args[1]}"
         print(formatted_message + Style.RESET_ALL)
 
 async def send_messages(client: Client):

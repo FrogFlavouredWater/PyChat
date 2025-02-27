@@ -63,10 +63,10 @@ class Client(ConnectionHandler):
             logger.info(f"Message from {self.nick} blocked (too long)")
             return (1, "Message too long")
 
-        for key, value in clients.items():
-            if value.lower() == packet.target.lower():
+        for client in clients:
+            if client.nick.lower() == packet.target.lower():
                 dm_packet = packets.clientbound.direct_message(source=self.nick, content=packet.content)
-                await key.send(dm_packet.encode())
+                await client.send(dm_packet)
                 return (0, "Sent")
         return (2, "Target user not found")
 
@@ -77,7 +77,6 @@ class Client(ConnectionHandler):
         await self.conn.close()
         return (0, "")
 
-    # TODO: REPEATED CODE: MOVE TO common.conn.ConnectionHandler
     async def handle_command(self, keyword: str, args: str) -> bool:
         cmd = args.split(' ')
 
