@@ -35,6 +35,14 @@ class Client(ConnectionHandler):
             return await func(self, *args, **kwargs)
         return wrapper
 
+    async def disconnect(self, message: str):
+        dc_pkt = packets.clientbound.disconnect(nickname=self.nick, message=message)
+        if self.fully_connected: await broadcast(dc_pkt)
+        logger.info(f"User {self.nick} disconnected: {message}")
+        await self.conn.close()
+        self.is_connected = False
+        return (0, "")
+
     async def p_connect(self, packet: packets.Packet):
         for client in clients:
             if client.nick.lower() == packet.nickname.lower():
@@ -42,6 +50,10 @@ class Client(ConnectionHandler):
         self.nick = packet.nickname
         clients.append(self)
         self.fully_connected = True
+
+        con_pkt = packets.clientbound.connect(nickname=self.nick)
+        await broadcast(con_pkt)
+        logger.info(f"User {self.nick} connected")
         return (0, "Connected")
 
     @if_fully_connected
@@ -49,6 +61,11 @@ class Client(ConnectionHandler):
         if len(packet.content) > MAX_MESSAGE_SIZE:
             logger.info(f"Message from {self.nick} blocked (too long)")
             return (1, "Message too long")
+
+        if len(packet.content) == 0:
+            logger.info(f"Message from {self.nick} blocked (empty)")
+            return (4, "Empty message")
+
         logger.debug(f"Received message from {self.nick}: {packet.content}")
         msg_pkt = packets.clientbound.recieve_message(nickname=self.nick, content=packet.content)
         await broadcast(msg_pkt)
@@ -74,10 +91,7 @@ class Client(ConnectionHandler):
         return (2, "Target user not found")
 
     async def p_disconnect(self, packet: packets.Packet):
-        dc_pkt = packets.clientbound.disconnect(nickname=self.nick, message=packet.message)
-        if self.fully_connected: await broadcast(dc_pkt)
-        await self.conn.close()
-        return (0, "")
+        await self.disconnect(packet.message)
 
     async def handle_command(self, keyword: str, args: str) -> bool:
         cmd = args.split(' ')
@@ -95,22 +109,19 @@ class Client(ConnectionHandler):
 
 async def chat_handler(websocket: websockets.ClientConnection):
     client = Client(websocket)
-    try:
-        async for message_packet in websocket:
-            try:
-                message = packets.decode(message_packet)
-            except packets.PacketReadError as e:
-                logger.warning(f"Recieved invalid packet from {client.nick}: {e.args}")
-            else:
-                await client.handle_packet(message)
+    async for message_packet in websocket:
+        try:
+            message = packets.decode(message_packet)
+        except packets.PacketReadError as e:
+            logger.warning(f"Recieved invalid packet from {client.nick}: {e.args}")
+        else:
+            await client.handle_packet(message)
 
-    except websockets.exceptions.ConnectionClosedError:
-        logger.info("Connection closed for client: {}", client.nick)
-        leave_pkt = packets.clientbound.disconnect(nickname=client.nick, message="Connection closed")
-        await broadcast(leave_pkt)
-    finally:
-        if client in clients:
-            clients.remove(client)
+    if client in clients:
+        clients.remove(client)
+
+    if client.is_connected:
+        await client.disconnect("Connection closed")
 
 async def main():
     logger.info(f"Starting server on {SERVER_ADDRESS}:{SERVER_PORT}")

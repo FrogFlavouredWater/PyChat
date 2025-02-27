@@ -7,6 +7,7 @@ class ConnectionHandler:
         self.addr = conn.remote_address[0] if conn.remote_address else ""
         self.nick = nick
         self.fully_connected = False
+        self.is_connected = True
 
     async def handle_packet(self, packet: packets.Packet):
         packet_func = getattr(self, "p_" + packet.type_name) # Find the function in self that's named 'p_packettype'

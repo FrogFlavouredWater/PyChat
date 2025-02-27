@@ -3,9 +3,11 @@ import websockets
 from loguru import logger
 import sys
 import argparse
-from SCPC.util import packets
 import kdl
 from colorama import Style, Fore, Back
+import aioconsole
+
+from SCPC.util import packets
 from common.conn import ConnectionHandler
 
 packets.init("etc/cfg/packets.kdl")
@@ -14,13 +16,13 @@ packets.init("etc/cfg/packets.kdl")
 with open("etc/cfg/config.kdl", 'r') as _infile:
     client_cfg = kdl.parse(_infile.read())
 
-IP_ADDR = client_cfg.get("client").get("server").props["ip"]
-IP_PORT = client_cfg.get("client").get("server").props["port"]
+IP_ADDR = client_cfg["client"]["server"].props["ip"]
+IP_PORT = client_cfg["client"]["server"].props["port"]
 
 DEBUG_ENABLED = False
 
 # TODO: add to config file
-command_aliases = {"dm": "msg", "pm": "msg", "debug": "debugmode"}
+command_aliases = {"dm": "msg", "pm": "msg", "w": "msg", "debug": "debugmode", "l": "exit"}
 
 class Client(ConnectionHandler):
     """Class to store Client attributes and methods"""
@@ -33,23 +35,25 @@ class Client(ConnectionHandler):
         logger.info("Connected to server as {}", username)
         self.username = username
 
-    async def disconnect(self):
-        await self.send(packets.serverbound.disconnect())
+    async def disconnect(self, message: str = ""):
+        print(1)
+        await self.send(packets.serverbound.disconnect(message=message))
+        self.is_connected = False
 
     async def p_keep_alive(self, packet: packets.Packet):
         return (0, "")
 
     async def p_recieve_message(self, packet: packets.Packet):
-        print(f"{Fore.CYAN}{packet.nickname}: {Style.RESET_ALL}{packet.content}")
+        print(f"{Fore.CYAN}{packet.nickname}: {Style.RESET_ALL}{packet.content}{Style.RESET_ALL}")
 
     async def p_connect(self, packet: packets.Packet):
-        print(f"{Fore.MAGENTA}{packet.nickname} joined the server{(': ' + packet.message) if packet.message else ''}") # message is an optional field containing a join/leave reason
+        print(f"{Fore.MAGENTA}{packet.nickname} joined the server{(': ' + packet.message) if packet.message else ''}{Style.RESET_ALL}") # message is an optional field containing a join/leave reason
 
     async def p_disconnect(self, packet: packets.Packet):
-        print(f"{Fore.MAGENTA}{packet.nickname} left the server{(': ' + packet.message) if packet.message else ''}")
+        print(f"{Fore.MAGENTA}{packet.nickname} left the server{(': ' + packet.message) if packet.message else ''}{Style.RESET_ALL}")
 
     async def p_direct_message(self, packet: packets.Packet):
-        print(f"{Back.LIGHTBLUE_EX}{Fore.BLACK} DM {Style.RESET_ALL} {Style.BRIGHT}{Fore.YELLOW}{packet.source}{Style.RESET_ALL}{Style.DIM} --> You: {Style.RESET_ALL}{packet.content}")
+        print(f"{Back.LIGHTBLUE_EX}{Fore.BLACK} DM {Style.RESET_ALL} {Style.BRIGHT}{Fore.YELLOW}{packet.source}{Style.RESET_ALL}{Style.DIM} --> You: {Style.RESET_ALL}{packet.content}{Style.RESET_ALL}")
 
     async def p_response(self, packet: packets.Packet):
         if packet.value > 0:
@@ -103,10 +107,10 @@ class Client(ConnectionHandler):
         if len(args) < 2:
             print("Usage: /msg <user> <message>")
             return
-        pm_packet = packets.serverbound.direct_message(target=args[0], content=args[1])
+        pm_packet = packets.serverbound.direct_message(target=args[0], content=' '.join(args[1:]))
         await self.send(pm_packet)
 
-        formatted_message = f"{Back.LIGHTBLUE_EX}{Fore.BLACK} DM {Style.RESET_ALL}{Style.DIM} You --> {Style.RESET_ALL}{Style.BRIGHT}{Fore.YELLOW}{args[0]}: {Style.RESET_ALL}{args[1]}"
+        formatted_message = f"{Back.LIGHTBLUE_EX}{Fore.BLACK} DM {Style.RESET_ALL}{Style.DIM} You --> {Style.RESET_ALL}{Style.BRIGHT}{Fore.YELLOW}{args[0]}: {Style.RESET_ALL}{' '.join(args[1:])}"
         print(formatted_message + Style.RESET_ALL)
 
     async def c_connect(self, keyword: str, args: list[str]):
@@ -115,35 +119,38 @@ class Client(ConnectionHandler):
         else:
             await self.connect(self.nick)
 
+    async def c_exit(self, keyword: str, args: list[str]):
+        if len(args) > 0:
+            await self.disconnect(' '.join(args[0:]))
+        else:
+            await self.disconnect()
+
 async def send_messages(client: Client):
     # Continuously read user input and send messages.
-    while True:
+    while client.is_connected:
         # Green prompt for user input.
-        msg = await asyncio.to_thread(input, "\033[32m>> \033[0m")
-        if msg.lower() == "exit":
-            await client.disconnect()
-            break
-        # Process local commands (e.g. /set debugmode or /dm).
+        msg = await aioconsole.ainput(f"{Fore.GREEN}>> {Style.RESET_ALL}")
+
+        # Process local commands (e.g. /set debugmode or /dm)
         if msg.startswith("/"):
             await client.handle_command(msg)
             continue
 
-        msg_pkt = packets.serverbound.send_message(content=msg)
-        await client.send(msg_pkt)
-        logger.debug("Sent message: {}", msg)
+        if len(msg) > 0:
+            msg_pkt = packets.serverbound.send_message(content=msg)
+            await client.send(msg_pkt)
+            logger.debug("Sent message: {}", msg)
 
 async def receive_messages(client: Client):
-    try:
-        async for encoded_packet in client.conn:
-            try:
-                packet = packets.decode(encoded_packet)
-            except packets.PacketReadError as e:
-                logger.warning(f"Recieved invalid packet from server: {e.args}")
-            else:
-                await client.handle_packet(packet)
+    async for encoded_packet in client.conn:
+        try:
+            packet = packets.decode(encoded_packet)
+        except packets.PacketReadError as e:
+            logger.warning(f"Recieved invalid packet from server: {e.args}")
+        else:
+            await client.handle_packet(packet)
 
-    except websockets.exceptions.ConnectionClosed:
-        logger.info("Connection closed by server.")
+        if not client.is_connected: break
 
 
 async def main():
@@ -169,4 +176,9 @@ if __name__ == "__main__":
     parser.add_argument("-d", "--debug", action="store_true", help="Enable debug logging")
     args = parser.parse_args()
 
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except websockets.exceptions.ConnectionClosed:
+        logger.info("Connection closed by server.")
+    except KeyboardInterrupt:
+        pass
