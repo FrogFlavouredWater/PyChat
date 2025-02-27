@@ -20,12 +20,15 @@ IP_PORT = client_cfg.get("client").get("server").props["port"]
 DEBUG_ENABLED = False
 
 # TODO: add to config file
-command_aliases = {"dm": "debugmode", "pm": "directmessage"}
+command_aliases = {"dm": "msg", "pm": "msg", "debug": "debugmode"}
 
 class Client(ConnectionHandler):
     """Class to store Client attributes and methods"""
     def __init__(self, conn: websockets.ClientConnection, nick: str = ""):
         super().__init__(conn, nick)
+
+    async def disconnect(self):
+        await self.send(packets.serverbound.disconnect())
 
     async def p_keep_alive(self, packet: packets.Packet):
         return (0, "")
@@ -79,7 +82,7 @@ class Client(ConnectionHandler):
         elif action == "toggle":
             DEBUG_ENABLED = not DEBUG_ENABLED
         else:
-            print("Usage: /set debugmode [on|off|toggle]")
+            print("Usage: /debugmode [on|off|toggle]")
             return
         # Reconfigure loguru logger.
         logger.remove()
@@ -90,9 +93,9 @@ class Client(ConnectionHandler):
         pkt = packets.serverbound.command(keyword=keyword)
         await self.send(pkt)
 
-    async def c_debugmode(self, keyword: str, args: list[str]):
+    async def c_msg(self, keyword: str, args: list[str]):
         if len(args) < 2:
-            print("Usage: /pm <user> <message>")
+            print("Usage: /msg <user> <message>")
             return
         pm_packet = packets.serverbound.direct_message(target=args[0], content=args[1])
         await self.send(pm_packet)
@@ -106,7 +109,7 @@ async def send_messages(client: Client):
         # Green prompt for user input.
         msg = await asyncio.to_thread(input, "\033[32m>> \033[0m")
         if msg.lower() == "exit":
-            await client.send(packets.serverbound.disconnect())
+            await client.close()
             break
         # Process local commands (e.g. /set debugmode or /dm).
         if msg.startswith("/"):
@@ -121,8 +124,12 @@ async def send_messages(client: Client):
 async def receive_messages(client: Client):
     try:
         async for encoded_packet in client.conn:
-            packet = packets.decode(encoded_packet)
-            await client.handle_packet(packet)
+            try:
+                packet = packets.decode(encoded_packet)
+            except packets.PacketReadError as e:
+                logger.warning(f"Recieved invalid packet from server: {e.args}")
+            else:
+                await client.handle_packet(packet)
 
     except websockets.exceptions.ConnectionClosed:
         logger.info("Connection closed by server.")
@@ -152,4 +159,5 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-d", "--debug", action="store_true", help="Enable debug logging")
     args = parser.parse_args()
+
     asyncio.run(main())

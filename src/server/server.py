@@ -3,6 +3,9 @@ import websockets
 from loguru import logger
 from SCPC.util import packets
 from common.conn import ConnectionHandler
+
+MAX_MESSAGE_SIZE=100
+
 # Dictionary mapping each connected websocket to its username.
 clients = []
 
@@ -36,7 +39,10 @@ class Client(ConnectionHandler):
 
     @if_fully_connected
     async def p_send_message(self, packet: packets.Packet):
-        logger.debug("Received message from {}: {}", self.nick, packet.content)
+        if len(packet.content) > MAX_MESSAGE_SIZE:
+            logger.info(f"Message from {self.nick} blocked (too long)")
+            return (1, "Message too long")
+        logger.debug(f"Received message from {self.nick}: {packet.content}")
         msg_pkt = packets.clientbound.recieve_message(nickname=self.nick, content=packet.content)
         await broadcast(msg_pkt)
         return (0, "Sent")
@@ -49,12 +55,16 @@ class Client(ConnectionHandler):
 
     @if_fully_connected
     async def p_direct_message(self, packet: packets.Packet):
+        if len(packet.content) > MAX_MESSAGE_SIZE:
+            logger.info(f"Message from {self.nick} blocked (too long)")
+            return (1, "Message too long")
+
         for key, value in clients.items():
             if value.lower() == packet.target.lower():
                 dm_packet = packets.clientbound.direct_message(source=self.nick, content=packet.content)
                 await key.send(dm_packet.encode())
                 return (0, "Sent")
-        return (1, "Target user not found")
+        return (2, "Target user not found")
 
     @if_fully_connected
     async def p_disconnect(self, packet: packets.Packet):
@@ -67,8 +77,12 @@ async def chat_handler(websocket: websockets.ClientConnection):
     client = Client(websocket)
     try:
         async for message_packet in websocket:
-            message = packets.decode(message_packet)
-            await client.handle_packet(message)
+            try:
+                message = packets.decode(message_packet)
+            except packets.PacketReadError as e:
+                logger.warning(f"Recieved invalid packet from {client.nick}: {e.args}")
+            else:
+                await client.handle_packet(message)
 
     except websockets.exceptions.ConnectionClosedError:
         logger.info("Connection closed for client: {}", client.nick)
