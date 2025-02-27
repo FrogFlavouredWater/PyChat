@@ -5,6 +5,8 @@ from SCPC.util import packets
 from common.conn import ConnectionHandler
 
 MAX_MESSAGE_SIZE=100
+SERVER_ADDRESS="0.0.0.0"
+SERVER_PORT="8080"
 
 # Dictionary mapping each connected websocket to its username.
 clients = []
@@ -93,8 +95,8 @@ async def chat_handler(websocket: websockets.ClientConnection):
             clients.remove(client)
 
 async def main():
-    logger.info("Starting server on 0.0.0.0:8080")
-    async with websockets.serve(chat_handler, "0.0.0.0", 8080):
+    logger.info(f"Starting server on {SERVER_ADDRESS}:{SERVER_PORT}")
+    async with websockets.serve(chat_handler, SERVER_ADDRESS, SERVER_PORT):
         logger.info("Server started. Waiting for connections...")
         await asyncio.Future()  # Run forever
 
