@@ -19,10 +19,16 @@ IP_PORT = client_cfg.get("client").get("server").props["port"]
 
 DEBUG_ENABLED = False
 
+# TODO: add to config file
+command_aliases = {"dm": "debugmode", "pm": "directmessage"}
+
 class Client(ConnectionHandler):
     """Class to store Client attributes and methods"""
     def __init__(self, conn: websockets.ClientConnection, nick: str = ""):
         super().__init__(conn, nick)
+
+    async def p_keep_alive(self, packet: packets.Packet):
+        return (0, "")
 
     async def p_recieve_message(self, packet: packets.Packet):
         print(f"{Fore.CYAN}{packet.nickname}: {Style.RESET_ALL}{packet.content}")
@@ -42,64 +48,57 @@ class Client(ConnectionHandler):
         else:
             logger.debug(f"Server returned a success: {packet.content}")
 
-async def handle_client_command(websocket, message):
-    """
-    Process client-specific commands.
-    Supports:
-      /set debugmode on|off|toggle
-      /dm on|off|toggle (alias for /set debugmode)
-    If handled locally, the function sends a command event to the server
-    so that the server logs the command execution.
-    Returns True if the command was handled locally.
-    """
-    parts = message.strip().split()
-    if not parts:
-        return False
+    #TODO: Seperate CommandHandler class maybe?
+    async def handle_command(self, command: str):
+        cmd = command.lstrip('/').split(' ')
+        if len(cmd) == 0:
+            return False
 
-    # Check for aliases: /dm becomes /set debugmode
-    if parts[0].lower() in ["/dm", "/set"]:
-        if parts[0].lower() == "/dm":
-            parts = ["/set", "debugmode"] + parts[1:]
-        new_command = " ".join(parts)
-        if parts[1].lower() == "debugmode":
-            if len(parts) < 3:
-                print("Usage: /set debugmode [on|off|toggle]")
-                return True
-            action = parts[2].lower()
-            global DEBUG_ENABLED
-            if action == "on":
-                DEBUG_ENABLED = True
-            elif action == "off":
-                DEBUG_ENABLED = False
-            elif action == "toggle":
-                DEBUG_ENABLED = not DEBUG_ENABLED
-            else:
-                print("Usage: /set debugmode [on|off|toggle]")
-                return True
-            # Reconfigure loguru logger.
-            logger.remove()
-            new_level = "DEBUG" if DEBUG_ENABLED else "INFO"
-            logger.add(sys.stdout, level=new_level, colorize=True)
-            print(f"Debug mode set to {DEBUG_ENABLED}")
-            # Send a special command event to the server for logging.
-            pkt = packets.serverbound.command(keyword=parts[0])
-            await websocket.send(pkt.encode())
-            return True
-        else:
-            print("Usage: /set debugmode [on|off|toggle]")
-            return True
-    elif parts[0].lower() == "/pm":
-        if len(parts) < 3:
-            print("Usage: /pm <user> <message>")
-            return True
-        pm_packet = packets.serverbound.direct_message(target=parts[1], content=parts[2])
-        await websocket.send(pm_packet.encode())
+        keyword = cmd.pop(0) # get 1st phrase of command
+        if command_aliases.get(keyword):
+            keyword = command_aliases[keyword]
 
-        formatted_message = f"{Back.LIGHTBLUE_EX}{Fore.BLACK}DM{Style.RESET_ALL}{Style.DIM} You --> {Style.RESET_ALL}{Style.BRIGHT}{Fore.YELLOW}{parts[1]}: {Style.RESET_ALL}{parts[2]}"
-        print(formatted_message + Style.RESET_ALL)
+        try:
+            cmd_func = getattr(self, "c_" + keyword) # Find the function in self that's named 'c_commandname'
+        except NameError: # command not found
+            return False
+
+        await cmd_func(keyword, cmd)
         return True
 
-    return False
+    async def c_debugmode(self, keyword: str, args: list[str]):
+        if len(args) < 1:
+            print("Usage: /debugmode [on|off|toggle]")
+            return
+        action = args[0].lower()
+        global DEBUG_ENABLED
+        if action == "on":
+            DEBUG_ENABLED = True
+        elif action == "off":
+            DEBUG_ENABLED = False
+        elif action == "toggle":
+            DEBUG_ENABLED = not DEBUG_ENABLED
+        else:
+            print("Usage: /set debugmode [on|off|toggle]")
+            return
+        # Reconfigure loguru logger.
+        logger.remove()
+        new_level = "DEBUG" if DEBUG_ENABLED else "INFO"
+        logger.add(sys.stdout, level=new_level, colorize=True)
+        print(f"Debug mode set to {DEBUG_ENABLED}")
+        # Send a special command event to the server for logging.
+        pkt = packets.serverbound.command(keyword=keyword)
+        await self.send(pkt)
+
+    async def c_debugmode(self, keyword: str, args: list[str]):
+        if len(args) < 2:
+            print("Usage: /pm <user> <message>")
+            return
+        pm_packet = packets.serverbound.direct_message(target=args[0], content=args[1])
+        await self.send(pm_packet)
+
+        formatted_message = f"{Back.LIGHTBLUE_EX}{Fore.BLACK}DM{Style.RESET_ALL}{Style.DIM} You --> {Style.RESET_ALL}{Style.BRIGHT}{Fore.YELLOW}{args[0]}: {Style.RESET_ALL}{args[1]}"
+        print(formatted_message + Style.RESET_ALL)
 
 async def send_messages(client: Client):
     # Continuously read user input and send messages.
@@ -111,7 +110,7 @@ async def send_messages(client: Client):
             break
         # Process local commands (e.g. /set debugmode or /dm).
         if msg.startswith("/"):
-            handled = await handle_client_command(client.conn, msg)
+            handled = await client.handle_command(msg)
             if handled:
                 continue  # Skip sending the command if it was handled locally.
 
