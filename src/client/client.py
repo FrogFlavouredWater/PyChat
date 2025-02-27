@@ -52,7 +52,7 @@ class Client(ConnectionHandler):
             logger.debug(f"Server returned a success: {packet.content}")
 
     #TODO: Seperate CommandHandler class maybe?
-    async def handle_command(self, command: str):
+    async def handle_command(self, command: str) -> bool:
         cmd = command.lstrip('/').split(' ')
         if len(cmd) == 0:
             return False
@@ -63,7 +63,10 @@ class Client(ConnectionHandler):
 
         try:
             cmd_func = getattr(self, "c_" + keyword) # Find the function in self that's named 'c_commandname'
-        except NameError: # command not found
+        except AttributeError: # command not found
+            cmd_pkt = packets.serverbound.command(keyword=keyword, args=' '.join(cmd))
+            await self.send(cmd_pkt)
+            logger.debug("Sent command: {}", keyword)
             return False
 
         await cmd_func(keyword, cmd)
@@ -89,9 +92,6 @@ class Client(ConnectionHandler):
         new_level = "DEBUG" if DEBUG_ENABLED else "INFO"
         logger.add(sys.stdout, level=new_level, colorize=True)
         print(f"Debug mode set to {DEBUG_ENABLED}")
-        # Send a special command event to the server for logging.
-        pkt = packets.serverbound.command(keyword=keyword)
-        await self.send(pkt)
 
     async def c_msg(self, keyword: str, args: list[str]):
         if len(args) < 2:
@@ -109,13 +109,12 @@ async def send_messages(client: Client):
         # Green prompt for user input.
         msg = await asyncio.to_thread(input, "\033[32m>> \033[0m")
         if msg.lower() == "exit":
-            await client.close()
+            await client.disconnect()
             break
         # Process local commands (e.g. /set debugmode or /dm).
         if msg.startswith("/"):
-            handled = await client.handle_command(msg)
-            if handled:
-                continue  # Skip sending the command if it was handled locally.
+            await client.handle_command(msg)
+            continue
 
         msg_pkt = packets.serverbound.send_message(content=msg)
         await client.send(msg_pkt)

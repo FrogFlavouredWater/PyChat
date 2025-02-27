@@ -8,6 +8,8 @@ MAX_MESSAGE_SIZE=100
 SERVER_ADDRESS="0.0.0.0"
 SERVER_PORT="8080"
 
+command_aliases = {}
+
 # Dictionary mapping each connected websocket to its username.
 clients = []
 
@@ -53,7 +55,7 @@ class Client(ConnectionHandler):
     async def p_command(self, packet: packets.Packet):
         command_text = packet.keyword
         logger.info("Command executed by {}: {}", self.nick, command_text)
-        return (0, "Executed")
+        return await self.handle_command(packet.keyword, packet.args)
 
     @if_fully_connected
     async def p_direct_message(self, packet: packets.Packet):
@@ -74,6 +76,21 @@ class Client(ConnectionHandler):
         await broadcast(dc_pkt)
         await self.conn.close()
         return (0, "")
+
+    # TODO: REPEATED CODE: MOVE TO common.conn.ConnectionHandler
+    async def handle_command(self, keyword: str, args: str) -> bool:
+        cmd = args.split(' ')
+
+        if command_aliases.get(keyword):
+            keyword = command_aliases[keyword]
+
+        try:
+            cmd_func = getattr(self, "c_" + keyword) # Find the function in self that's named 'c_commandname'
+        except AttributeError: # command not found
+            return (3, "Command not found")
+
+        await cmd_func(keyword, cmd)
+        return (0, "Executed")
 
 async def chat_handler(websocket: websockets.ClientConnection):
     client = Client(websocket)
