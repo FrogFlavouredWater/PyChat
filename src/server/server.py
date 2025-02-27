@@ -2,6 +2,7 @@ import asyncio
 import websockets
 from loguru import logger
 from SCPC.util import packets
+from common.conn import ConnectionHandler
 # Dictionary mapping each connected websocket to its username.
 clients = []
 
@@ -12,13 +13,10 @@ async def broadcast(packet: packets.Packet):
     if clients:
         await asyncio.gather(*[client.send(packet) for client in clients])
 
-class Client:
+class Client(ConnectionHandler):
     """Class to store Client attributes and methods"""
     def __init__(self, conn: websockets.ClientConnection, nick: str = ""):
-        self.conn = conn
-        self.addr = conn.remote_address[0] if conn.remote_address else ""
-        self.nick = nick
-        self.fully_connected = False
+        super().__init__(conn, nick)
 
     def if_fully_connected(func):
         async def wrapper(self, *args, **kwargs):
@@ -29,16 +27,6 @@ class Client:
                 return
             return await func(self, *args, **kwargs)
         return wrapper
-
-    async def handle_packet(self, packet: packets.Packet):
-        packet_func = getattr(self, "p_" + packet.type_name)
-        response = await packet_func(packet) # Call the function in self for the packet type
-        if 'r' in packet.flags and response:
-            resp_packet = packets.twoway.response(value=response[0], content=response[1])
-            await self.send(resp_packet)
-
-    async def send(self, packet: packets.Packet):
-        await self.conn.send(packet.encode())
 
     async def p_connect(self, packet: packets.Packet):
         self.nick = packet.nickname
