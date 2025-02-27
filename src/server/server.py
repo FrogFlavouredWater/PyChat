@@ -36,6 +36,9 @@ class Client(ConnectionHandler):
         return wrapper
 
     async def p_connect(self, packet: packets.Packet):
+        for client in clients:
+            if client.nick.lower() == packet.nickname.lower():
+                return (5, "Username already in use")
         self.nick = packet.nickname
         clients.append(self)
         self.fully_connected = True
@@ -70,10 +73,9 @@ class Client(ConnectionHandler):
                 return (0, "Sent")
         return (2, "Target user not found")
 
-    @if_fully_connected
     async def p_disconnect(self, packet: packets.Packet):
         dc_pkt = packets.clientbound.disconnect(nickname=self.nick, message=packet.message)
-        await broadcast(dc_pkt)
+        if self.fully_connected: await broadcast(dc_pkt)
         await self.conn.close()
         return (0, "")
 

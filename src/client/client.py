@@ -27,6 +27,12 @@ class Client(ConnectionHandler):
     def __init__(self, conn: websockets.ClientConnection, nick: str = ""):
         super().__init__(conn, nick)
 
+    async def connect(self, username: str):
+        connect_pkt = packets.serverbound.connect(nickname=username)
+        await self.send(connect_pkt)
+        logger.info("Connected to server as {}", username)
+        self.username = username
+
     async def disconnect(self):
         await self.send(packets.serverbound.disconnect())
 
@@ -103,6 +109,12 @@ class Client(ConnectionHandler):
         formatted_message = f"{Back.LIGHTBLUE_EX}{Fore.BLACK} DM {Style.RESET_ALL}{Style.DIM} You --> {Style.RESET_ALL}{Style.BRIGHT}{Fore.YELLOW}{args[0]}: {Style.RESET_ALL}{args[1]}"
         print(formatted_message + Style.RESET_ALL)
 
+    async def c_connect(self, keyword: str, args: list[str]):
+        if len(args) > 0:
+            await self.connect(args[0])
+        else:
+            await self.connect(self.nick)
+
 async def send_messages(client: Client):
     # Continuously read user input and send messages.
     while True:
@@ -148,9 +160,7 @@ async def main():
     async with websockets.connect(url) as websocket:
         client = Client(websocket, username)
         # Send the username as the first message.
-        connect_pkt = packets.serverbound.connect(nickname=username)
-        await client.send(connect_pkt)
-        logger.info("Connected to server as {}", username)
+        await client.connect(username)
         # Run both send and receive loops concurrently.
         await asyncio.gather(send_messages(client), receive_messages(client))
 
