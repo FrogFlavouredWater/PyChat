@@ -6,8 +6,9 @@ import argparse
 import kdl
 from colorama import Style, Fore, Back
 import aioconsole
-
 from SCPC.util import packets
+
+#import commands
 from common.conn import ConnectionHandler
 
 packets.init("etc/cfg/packets.kdl")
@@ -71,7 +72,7 @@ class Client(ConnectionHandler):
             keyword = command_aliases[keyword]
 
         try:
-            cmd_func = getattr(self, "c_" + keyword) # Find the function in self that's named 'c_commandname'
+            cmd_func = getattr(command, "c_" + keyword) # Find the function in self that's named 'c_commandname'
         except AttributeError: # command not found
             cmd_pkt = packets.serverbound.command(keyword=keyword, args=' '.join(cmd))
             await self.send(cmd_pkt)
