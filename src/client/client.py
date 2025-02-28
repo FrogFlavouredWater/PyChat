@@ -82,27 +82,6 @@ class Client(ConnectionHandler):
         await cmd_func(keyword, cmd)
         return True
 
-    async def c_debugmode(self, keyword: str, args: list[str]):
-        if len(args) < 1:
-            print("Usage: /debugmode [on|off|toggle]")
-            return
-        action = args[0].lower()
-        global DEBUG_ENABLED
-        if action == "on":
-            DEBUG_ENABLED = True
-        elif action == "off":
-            DEBUG_ENABLED = False
-        elif action == "toggle":
-            DEBUG_ENABLED = not DEBUG_ENABLED
-        else:
-            print("Usage: /debugmode [on|off|toggle]")
-            return
-        # Reconfigure loguru logger.
-        logger.remove()
-        new_level = "DEBUG" if DEBUG_ENABLED else "INFO"
-        logger.add(sys.stdout, level=new_level, colorize=True)
-        print(f"Debug mode set to {DEBUG_ENABLED}")
-
     async def c_msg(self, keyword: str, args: list[str]):
         if len(args) < 2:
             print("Usage: /msg <user> <message>")
@@ -183,6 +162,6 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         pass
     except ConnectionRefusedError:
-        logger.critical("Connection refused by server.\nIs the server running?\nIs the IP address correct?\nIs the port correct?\nAre you connected to the internet?\nAre you really connected to the internet?\nAre you sure?\nAre you really sure?\nAre you really really sure?\nAre you really really really sure?")    
+        logger.critical("Connection refused by server.\nIs the server running?\nIs the IP address correct?\nIs the port correct?\nAre you connected to the internet?\nAre you really connected to the internet?\nAre you sure?\nAre you really sure?\nAre you really really sure?\nAre you really really really sure?")
     except Exception as e: # IMPORTANT: HENRY DONT YOU FUCKING DARE REMOVE THIS
         logger.critical(f"Something went wrong and I have no fucking clue what it was. Good luck debugging this one:\n Maybe it was: {e}")
