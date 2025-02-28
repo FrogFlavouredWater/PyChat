@@ -10,6 +10,8 @@ from SCPC.util import packets
 
 #import commands
 from common.conn import ConnectionHandler
+import commands
+from common import cmd_utils
 
 packets.init("etc/cfg/packets.kdl")
 
@@ -22,7 +24,6 @@ IP_PORT = client_cfg["client"]["server"]["port"].args[0]
 
 DEBUG_ENABLED = False
 # TODO: add to config file
-command_aliases = {"dm": "msg", "pm": "msg", "w": "msg", "debug": "debugmode", "l": "exit"}
 
 class Client(ConnectionHandler):
     """Class to store Client attributes and methods"""
@@ -61,48 +62,31 @@ class Client(ConnectionHandler):
         else:
             logger.debug(f"Server returned a success: {packet.content}")
 
-    #TODO: Seperate CommandHandler class maybe?
     async def handle_command(self, command: str) -> bool:
         cmd = command.lstrip('/').split(' ')
         if len(cmd) == 0:
             return False
 
         keyword = cmd.pop(0) # get 1st phrase of command
-        if command_aliases.get(keyword):
-            keyword = command_aliases[keyword]
+        if commands.command_aliases.get(keyword):
+            keyword = commands.command_aliases[keyword]
 
-        try:
-            cmd_func = getattr(command, "c_" + keyword) # Find the function in self that's named 'c_commandname'
-        except AttributeError: # command not found
+        if keyword in commands.command_index:
+            cmd_class = commands.command_index[keyword]
+        else: # defer to server
             cmd_pkt = packets.serverbound.command(keyword=keyword, args=' '.join(cmd))
             await self.send(cmd_pkt)
             logger.debug("Sent command: {}", keyword)
             return False
 
-        await cmd_func(keyword, cmd)
+        try:
+            args = cmd_utils.validate_args(cmd, cmd_class.validation)
+        except:
+            print("Usage: ", cmd_utils.make_command_string(cmd_class.keyword, cmd_class.validation))
+            return False
+
+        await cmd_class.invoke(self, keyword, **args)
         return True
-
-    async def c_msg(self, keyword: str, args: list[str]):
-        if len(args) < 2:
-            print("Usage: /msg <user> <message>")
-            return
-        pm_packet = packets.serverbound.direct_message(target=args[0], content=' '.join(args[1:]))
-        await self.send(pm_packet)
-
-        formatted_message = f"{Back.LIGHTBLUE_EX}{Fore.BLACK} DM {Style.RESET_ALL}{Style.DIM} You --> {Style.RESET_ALL}{Style.BRIGHT}{Fore.YELLOW}{args[0]}: {Style.RESET_ALL}{' '.join(args[1:])}"
-        print(formatted_message + Style.RESET_ALL)
-
-    async def c_connect(self, keyword: str, args: list[str]):
-        if len(args) > 0:
-            await self.connect(args[0])
-        else:
-            await self.connect(self.nick)
-
-    async def c_exit(self, keyword: str, args: list[str]):
-        if len(args) > 0:
-            await self.disconnect(' '.join(args[0:]))
-        else:
-            await self.disconnect()
 
 async def send_messages(client: Client):
     # Continuously read user input and send messages.
@@ -163,5 +147,5 @@ if __name__ == "__main__":
         pass
     except ConnectionRefusedError:
         logger.critical("Connection refused by server.\nIs the server running?\nIs the IP address correct?\nIs the port correct?\nAre you connected to the internet?\nAre you really connected to the internet?\nAre you sure?\nAre you really sure?\nAre you really really sure?\nAre you really really really sure?")
-    except Exception as e: # IMPORTANT: HENRY DONT YOU FUCKING DARE REMOVE THIS
+    except Exception as e: #^ IMPORTANT: HENRY DONT YOU FUCKING DARE REMOVE THIS
         logger.critical(f"Something went wrong and I have no fucking clue what it was. Good luck debugging this one:\n Maybe it was: {e}")
