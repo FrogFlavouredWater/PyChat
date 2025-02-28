@@ -2,6 +2,7 @@ from loguru import logger
 import sys
 
 from common import cmd_utils
+from common.cmd_utils import CommandResponse
 
 command_index = {}
 
@@ -15,28 +16,22 @@ class debugmode(Command):
     aliases = ["debug"]
     args = [
         {
+            "name": "action",
             "type": "bool",
             "required": False
         }
     ]
 
-    async def invoke(cls, client, keyword: str, args: list[str]):
-        if len(args) < 1:
-            print("Usage: /debugmode [on|off|toggle]")
-            return
-        action = args[0].lower()
+    async def invoke(cls, client, keyword: str, action: bool = None) -> tuple[int, str]:
         global DEBUG_ENABLED
-        if action == "on":
-            DEBUG_ENABLED = True
-        elif action == "off":
-            DEBUG_ENABLED = False
-        elif action == "toggle":
+        if action == None:
             DEBUG_ENABLED = not DEBUG_ENABLED
         else:
-            print("Usage: /debugmode [on|off|toggle]")
-            return
+            DEBUG_ENABLED = action
+
         # Reconfigure loguru logger.
         logger.remove()
         new_level = "DEBUG" if DEBUG_ENABLED else "INFO"
         logger.add(sys.stdout, level=new_level, colorize=True)
         print(f"Debug mode set to {DEBUG_ENABLED}")
+        return (0, "")
