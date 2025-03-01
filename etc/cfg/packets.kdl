@@ -13,6 +13,7 @@ serverbound {
     disconnect 0x4004 message="lds"
     direct_message 0x4005 "ri" target="lds" content="nts"
     command 0x4006 "ri" keyword="lds" args="nts"
+    emote 0x4007 "ri" content="nts"
 }
 
 clientbound {
@@ -21,6 +22,7 @@ clientbound {
     connect 0x8002 nickname="lds" message="lds"
     disconnect 0x8004 nickname="lds" message="lds"
     direct_message 0x8005 source="lds" content="nts"
+    emote 0x8007 nickname="lds" content="nts"
 }
 
 twoway {

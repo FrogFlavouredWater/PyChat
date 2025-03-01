@@ -1,0 +1,9 @@
+services:
+  main:
+    build: .
+    restart: unless-stopped
+    container_name: pychat
+    volumes:
+      - pychat:/app/data
+volumes:
+  pychat:

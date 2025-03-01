@@ -8,7 +8,7 @@ MAX_MESSAGE_SIZE=100
 SERVER_ADDRESS="0.0.0.0"
 SERVER_PORT="8080"
 
-command_aliases = {"msg" : "message"} 
+command_aliases = {"msg" : "message"}
 
 clients = []
 
@@ -72,6 +72,22 @@ class Client(ConnectionHandler):
         return (0, "Sent")
 
     @if_fully_connected
+    async def p_emote(self, packet: packets.Packet):
+        #TODO: Convert to server command
+        if len(packet.content) > MAX_MESSAGE_SIZE:
+            logger.info(f"Message from {self.nick} blocked (too long)")
+            return (1, "Message too long")
+
+        if len(packet.content) == 0:
+            logger.info(f"Message from {self.nick} blocked (empty)")
+            return (4, "Empty message")
+
+        logger.debug(f"Received emote from {self.nick}: {packet.content}")
+        msg_pkt = packets.clientbound.emote(nickname=self.nick, content=packet.content)
+        await broadcast(msg_pkt)
+        return (0, "Sent")
+
+    @if_fully_connected
     async def p_command(self, packet: packets.Packet):
         command_text = packet.keyword
         logger.info(f"Command executed by {self.nick}: {command_text}")
@@ -112,8 +128,8 @@ async def chat_handler(websocket: websockets.ClientConnection):
     async for message_packet in websocket: # wait for packets and decode raw bytes back to text
         try:
             message = packets.decode(message_packet)
-        except packets.PacketReadError as e:
-            logger.warning(f"Recieved invalid packet from {client.nick}: {e.args}")
+        except Exception as e:
+            logger.warning(f"Error while reading packet from {client.nick}: {e.args}")
         else:
             await client.handle_packet(message)
 
@@ -139,6 +155,6 @@ if __name__ == "__main__":
         logger.error(f"Service already running on that address: \nOnly one use of each socket address is normally permitted.\n(Address: {SERVER_ADDRESS}:{SERVER_PORT} is already in use)\nIs the server already running?\n")
     except Exception as e:
         logger.error(f"Server stopped due to error: {e}")
-    
-    
+
+
 
