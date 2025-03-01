@@ -2,7 +2,7 @@ client {
     debug false enable_commands=true
 
     server {
-        ip "192.168.0.14"
+        ip "127.0.0.1"
         port "6974"
     }
 }
