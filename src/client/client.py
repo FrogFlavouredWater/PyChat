@@ -150,7 +150,7 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         pass
     except ConnectionRefusedError:
-        logger.critical("Connection refused by server.\nIs the server running?\nIs the IP address correct?\nIs the port correct?\nAre you connected to the internet?\nAre you really connected to the internet?\nAre you sure?\nAre you really sure?\nAre you really really sure?\nAre you really really really sure?")
+        logger.critical("Connection refused by server.\nIs the server running?")
     except Exception as e: #^ IMPORTANT: HENRY DONT YOU FUCKING DARE REMOVE THIS
         logger.critical(f"Something went wrong and I have no fucking clue what it was. Good luck debugging this one.")
         raise e
