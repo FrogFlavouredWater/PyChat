@@ -139,3 +139,20 @@ class help(Command):
         else:
             for key, cmd_class in command_index.items():
                 print(cmd_utils.make_command_string(key, cmd_class.validation))
+
+class emote(Command):
+    keyword = "emote"
+    aliases = ["e"]
+    validation = [
+        {
+            "name": "action",
+            "type": "string..",
+            "required": True
+        }
+    ]
+    description = "Send a message as an action"
+
+    @classmethod
+    async def invoke(cls, client, keyword: str, action: str):
+        msg_pkt = packets.serverbound.emote(content=action)
+        await client.send(msg_pkt)

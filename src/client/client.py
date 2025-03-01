@@ -6,6 +6,7 @@ import argparse
 import kdl
 from colorama import Style, Fore, Back
 import aioconsole
+import traceback
 from SCPC.util import packets
 
 #import commands
@@ -55,6 +56,9 @@ class Client(ConnectionHandler):
 
     async def p_direct_message(self, packet: packets.Packet):
         print(f"{Back.LIGHTBLUE_EX}{Fore.BLACK} DM {Style.RESET_ALL} {Style.BRIGHT}{Fore.YELLOW}{packet.source}{Style.RESET_ALL}{Style.DIM} --> You: {Style.RESET_ALL}{packet.content}{Style.RESET_ALL}")
+
+    async def p_emote(self, packet: packets.Packet):
+        print(f"*{Fore.CYAN}{packet.nickname} {Style.RESET_ALL}{packet.content}{Style.RESET_ALL}")
 
     async def p_response(self, packet: packets.Packet):
         if packet.value > 0:
@@ -108,8 +112,8 @@ async def receive_messages(client: Client):
     async for encoded_packet in client.conn:
         try:
             packet = packets.decode(encoded_packet)
-        except packets.PacketReadError as e:
-            logger.warning(f"Recieved invalid packet from server: {e.args}")
+        except Exception as e:
+            logger.warning(f"Error while reading packet from server: {e}")
         else:
             await client.handle_packet(packet)
 
@@ -148,4 +152,5 @@ if __name__ == "__main__":
     except ConnectionRefusedError:
         logger.critical("Connection refused by server.\nIs the server running?\nIs the IP address correct?\nIs the port correct?\nAre you connected to the internet?\nAre you really connected to the internet?\nAre you sure?\nAre you really sure?\nAre you really really sure?\nAre you really really really sure?")
     except Exception as e: #^ IMPORTANT: HENRY DONT YOU FUCKING DARE REMOVE THIS
-        logger.critical(f"Something went wrong and I have no fucking clue what it was. Good luck debugging this one:\n Maybe it was: {e}")
+        logger.critical(f"Something went wrong and I have no fucking clue what it was. Good luck debugging this one.")
+        raise e
