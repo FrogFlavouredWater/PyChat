@@ -6,7 +6,7 @@ from common.conn import ConnectionHandler
 
 MAX_MESSAGE_SIZE=100
 SERVER_ADDRESS="0.0.0.0"
-SERVER_PORT="8080"
+SERVER_PORT="6974"
 
 command_aliases = {"msg" : "message"}
 
