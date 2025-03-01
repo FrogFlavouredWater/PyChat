@@ -1,7 +1,7 @@
 services:
   main:
     build: .
-    restart: on_failure:3
+    restart: on-failure:3
     ports:
       - "6974"
     container_name: pychat
