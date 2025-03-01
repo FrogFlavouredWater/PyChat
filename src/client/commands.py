@@ -142,7 +142,7 @@ class help(Command):
 
 class emote(Command):
     keyword = "emote"
-    aliases = ["e"]
+    aliases = ["e", "me"]
     validation = [
         {
             "name": "action",
