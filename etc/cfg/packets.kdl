@@ -3,9 +3,6 @@
 // version: major minor
 version 0 0
 
-// File containing scramble code
-scramble "res/util/scramble"
-
 serverbound {
     send_message 0x4000 "ri" content="nts"
     connect 0x4002 "ri" nickname="lds"
@@ -14,10 +11,12 @@ serverbound {
     direct_message 0x4005 "ri" target="lds" content="nts"
     command 0x4006 "ri" keyword="lds" args="nts"
     emote 0x4007 "ri" content="nts"
+    register 0x4008 "ri" username="lds" password="nts"
+    login 0x4009 "ri" username="lds" password="nts"
 }
 
 clientbound {
-    keep_alive 0x8000 "r"
+    keep_alive 0x8000 "r" timestamp="uint32"
     recieve_message 0x8001 nickname="lds" content="nts"
     connect 0x8002 nickname="lds" message="lds"
     disconnect 0x8004 nickname="lds" message="lds"

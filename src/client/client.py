@@ -6,7 +6,6 @@ import argparse
 import kdl
 from colorama import Style, Fore, Back
 import aioconsole
-import traceback
 from SCPC.util import packets
 
 #import commands
@@ -35,6 +34,17 @@ class Client(ConnectionHandler):
         connect_pkt = packets.serverbound.connect(nickname=username)
         await self.send(connect_pkt)
         logger.info("Connected to server as {}", username)
+        self.username = username
+
+    async def register(self, username: str, password: str):
+        register_pkt = packets.serverbound.register(username=username, password=password)
+        await self.send(register_pkt)
+        logger.info("Registered account")
+
+    async def login(self, username: str, password: str):
+        register_pkt = packets.serverbound.login(username=username, password=password)
+        await self.send(register_pkt)
+        logger.info("Logged in")
         self.username = username
 
     async def disconnect(self, message: str = ""):
@@ -129,10 +139,18 @@ async def main():
     else:
         logger.add(sys.stdout, level="INFO", colorize=True)
 
+    has_account = await asyncio.to_thread(input, ("Do you have an account? (y/n): ").lower())
     username = await asyncio.to_thread(input, "Enter your username: ")
+    password = await asyncio.to_thread(input, "Enter password: ")
     url = f"ws://{IP_ADDR}:{IP_PORT}"
     async with websockets.connect(url) as websocket:
         client = Client(websocket, username)
+
+        if has_account.startswith('n'):
+            await client.register(username, password)
+
+        await client.login(username, password)
+
         # Send the username as the first message.
         await client.connect(username)
         # Run both send and receive loops concurrently.

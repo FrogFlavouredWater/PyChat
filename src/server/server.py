@@ -2,6 +2,7 @@ import asyncio
 import websockets
 from loguru import logger
 from SCPC.util import packets
+from auth import User
 from common.conn import ConnectionHandler
 
 MAX_MESSAGE_SIZE=100
@@ -108,6 +109,20 @@ class Client(ConnectionHandler):
 
     async def p_disconnect(self, packet: packets.Packet):
         await self.disconnect(packet.message)
+
+    async def p_register(self, packet: packets.Packet):
+        response = User.register(packet.username, packet.password)
+        if response:
+            return (0, response.content)
+        else:
+            return(99, response.content)
+
+    async def p_login(self, packet: packets.Packet):
+        response = User.login(packet.username, packet.password)
+        if response:
+            return (0, response.content)
+        else:
+            return(99, response.content)
 
     async def handle_command(self, keyword: str, args: str) -> bool:
         cmd = args.split(' ')
